@@ -5,6 +5,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { pool } from "../db";
 import { wrap } from "../utils";
+import { s3Enabled, s3Key, publicUrl, putObject, deleteObject, s3Status } from "../s3";
 
 export const UPLOAD_DIR = path.join(__dirname, "..", "..", "uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -12,16 +13,18 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const ALLOWED = /^(image\/(jpeg|png|gif|webp|svg\+xml|avif)|video\/(mp4|webm)|application\/pdf)$/;
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (_req, file, cb) =>
-      cb(null, `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${path.extname(file.originalname).toLowerCase()}`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => cb(null, ALLOWED.test(file.mimetype)),
 });
 
 const r = Router();
+
+const newName = (original: string) =>
+  `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${path.extname(original).toLowerCase()}`;
+
+// Shows where uploads go (S3 or local disk) - handy for checking the server config
+r.get("/status", (_req, res) => res.json(s3Status()));
 
 r.get("/", wrap(async (req, res) => {
   const { rows } = await pool.query(
@@ -37,9 +40,21 @@ r.post("/", upload.array("files", 20), wrap(async (req, res) => {
   const base = process.env.PUBLIC_URL || "";
   const out = [];
   for (const f of files) {
+    const name = newName(f.originalname);
+    let stored: string, url: string;
+    if (s3Enabled) {
+      // S3 objects are stored with their full key (contains "/"), local files with a bare filename
+      stored = s3Key(name);
+      await putObject(stored, f.buffer, f.mimetype);
+      url = publicUrl(stored);
+    } else {
+      await fs.promises.writeFile(path.join(UPLOAD_DIR, name), f.buffer);
+      stored = name;
+      url = `${base}/uploads/${name}`;
+    }
     const { rows } = await pool.query(
       `INSERT INTO media (filename,original_name,url,mime_type,size,title) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [f.filename, f.originalname, `${base}/uploads/${f.filename}`, f.mimetype, f.size, path.parse(f.originalname).name]
+      [stored, f.originalname, url, f.mimetype, f.size, path.parse(f.originalname).name]
     );
     out.push(rows[0]);
   }
@@ -58,7 +73,12 @@ r.put("/:id", wrap(async (req, res) => {
 r.delete("/:id", wrap(async (req, res) => {
   const { rows } = await pool.query(`DELETE FROM media WHERE id=$1 RETURNING filename`, [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
-  fs.promises.unlink(path.join(UPLOAD_DIR, rows[0].filename)).catch(() => {});
+  const stored: string = rows[0].filename;
+  if (stored.includes("/")) {
+    if (s3Enabled) await deleteObject(stored).catch((e) => console.error("S3 delete failed:", stored, e.message));
+  } else {
+    fs.promises.unlink(path.join(UPLOAD_DIR, stored)).catch(() => {});
+  }
   res.status(204).end();
 }));
 

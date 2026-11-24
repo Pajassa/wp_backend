@@ -63,8 +63,8 @@ r.post("/", upload.array("files", 20), wrap(async (req, res) => {
 
 r.put("/:id", wrap(async (req, res) => {
   const { rows } = await pool.query(
-    `UPDATE media SET title=$1, alt_text=$2 WHERE id=$3 RETURNING *`,
-    [String(req.body.title || ""), String(req.body.alt_text || ""), req.params.id]
+    `UPDATE media SET title=$1, alt_text=$2, caption=$3, description=$4 WHERE id=$5 RETURNING *`,
+    [String(req.body.title || ""), String(req.body.alt_text || ""), String(req.body.caption || ""), String(req.body.description || ""), req.params.id]
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);

@@ -44,6 +44,8 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       UNIQUE (taxonomy, slug)
     );
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS caption TEXT NOT NULL DEFAULT '';
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
     ALTER TABLE terms ADD COLUMN IF NOT EXISTS custom_uri TEXT NOT NULL DEFAULT '';
     CREATE TABLE IF NOT EXISTS listings (
       id SERIAL PRIMARY KEY,
@@ -79,5 +81,6 @@ export async function initDb() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS seo JSONB NOT NULL DEFAULT '{}';
   `);
 }

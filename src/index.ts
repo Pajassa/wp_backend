@@ -7,6 +7,7 @@ import terms from "./routes/terms";
 import posts from "./routes/posts";
 import media, { UPLOAD_DIR } from "./routes/media";
 import listings from "./routes/listings";
+import site from "./routes/public";
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
@@ -29,6 +30,10 @@ app.use("/api/taxonomies", terms);
 app.use("/api/posts", posts);
 app.use("/api/media", media);
 app.use("/api/listings", listings);
+// Public read-only API used by the website
+app.use("/api/properties", site.properties);
+app.use("/api/cities", site.cities);
+app.use("/api/blogs", site.blogs);
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => pgError(err, res));
 

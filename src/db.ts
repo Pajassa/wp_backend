@@ -82,5 +82,11 @@ export async function initDb() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS seo JSONB NOT NULL DEFAULT '{}';
+    -- ids from the old WordPress site (set by the WP import; keeps re-imports idempotent)
+    ALTER TABLE media ADD COLUMN IF NOT EXISTS wp_id INTEGER UNIQUE;
+    ALTER TABLE terms ADD COLUMN IF NOT EXISTS wp_id INTEGER UNIQUE;
+    ALTER TABLE terms ADD COLUMN IF NOT EXISTS seo JSONB NOT NULL DEFAULT '{}';
+    ALTER TABLE listings ADD COLUMN IF NOT EXISTS wp_id INTEGER UNIQUE;
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS wp_id INTEGER UNIQUE;
   `);
 }

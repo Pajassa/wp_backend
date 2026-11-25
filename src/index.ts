@@ -10,7 +10,8 @@ import listings from "./routes/listings";
 import site from "./routes/public";
 
 const app = express();
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
+const corsOrigins = (process.env.CORS_ORIGIN || "*").split(",").map((o) => o.trim()).filter(Boolean);
+app.use(cors({ origin: corsOrigins.includes("*") ? "*" : corsOrigins }));
 app.use(express.json({ limit: "5mb" }));
 app.use("/uploads", express.static(UPLOAD_DIR));
 

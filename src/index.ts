@@ -8,6 +8,7 @@ import posts from "./routes/posts";
 import media, { UPLOAD_DIR } from "./routes/media";
 import listings from "./routes/listings";
 import site from "./routes/public";
+import { authRoutes, requireAuth } from "./auth";
 
 const app = express();
 const corsOrigins = (process.env.CORS_ORIGIN || "*").split(",").map((o) => o.trim()).filter(Boolean);
@@ -16,7 +17,8 @@ app.use(express.json({ limit: "5mb" }));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
-app.get("/api/stats", async (_req, res, next) => {
+app.use("/api/auth", authRoutes);
+app.get("/api/stats", requireAuth, async (_req, res, next) => {
   try {
     const { rows } = await pool.query(`
       SELECT (SELECT count(*) FROM posts)::int AS posts,
@@ -27,10 +29,10 @@ app.get("/api/stats", async (_req, res, next) => {
     res.json(rows[0]);
   } catch (e) { next(e); }
 });
-app.use("/api/taxonomies", terms);
-app.use("/api/posts", posts);
-app.use("/api/media", media);
-app.use("/api/listings", listings);
+app.use("/api/taxonomies", requireAuth, terms);
+app.use("/api/posts", requireAuth, posts);
+app.use("/api/media", requireAuth, media);
+app.use("/api/listings", requireAuth, listings);
 // Public read-only API used by the website
 app.use("/api/properties", site.properties);
 app.use("/api/cities", site.cities);
